@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0]
+
+### Changed
+
+- **breaking** All remaining numeric enum types have been converted to `#[repr(transparent)]` newtype structs with `pub const` associated constants, matching the pattern introduced for `Architecture` in 0.15.0. Affected types:
+  - v4: `Opcode`, `HType`, `NodeType`, `AutoConfig`, `MessageType`, `RelayCode`, `QueryState`, `Code`
+  - v6: `MessageType`, `Status`, `HType`, `OptionCode`, `OROCode`
+  - The `Unknown(n)` enum variant is gone; any unrecognised value is represented by the newtype wrapping the raw integer.
+  - `AutoConfig` conversion changed from `TryFrom<u8>` to `From<u8>` (infallible).
+  - `TryFrom<OptionCode> for OROCode` added (returns `Err(OptionCode)` for non-requestable codes); `OROCode::is_known()` method added.
+
+### Fixed
+
+- `OROCode` was missing `S46Br` (code 90), which IANA marks as a valid Client ORO option.
+
 ## [0.15.0]
 
 ### Added
