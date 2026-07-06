@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1]
+
+### Fixed
+
+- `Message::encode_overloaded` correctness for edge cases: it no longer emits a
+  message larger than `max_len` for small/degenerate limits (it now requires
+  `max_len >= 240` and rejects with `MessageTooLarge` when an overloaded message
+  cannot fit), no longer re-emits a stray `OptionOverload` marker left in the
+  options on the no-spill path, and can now pack an option that exactly fills the
+  fixed-size `file`/`sname` field (those fields need no terminating `End`).
+
 ## [0.17.0]
 
 ### Changed
