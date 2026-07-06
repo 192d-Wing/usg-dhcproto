@@ -244,29 +244,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4ae5f15dda3c708c0ade84bfee31ccab44a3da4f88015ed22f63732abe300c8"
 
 [[package]]
-name = "dhcproto"
-version = "0.16.0"
-dependencies = [
- "criterion",
- "dhcproto-macros",
- "hickory-proto",
- "ipnet",
- "rand",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "dhcproto-macros"
-version = "0.2.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "displaydoc"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1122,6 +1099,29 @@ dependencies = [
  "percent-encoding",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "usg-dhcproto"
+version = "0.16.0"
+dependencies = [
+ "criterion",
+ "hickory-proto",
+ "ipnet",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "usg-dhcproto-macros",
+]
+
+[[package]]
+name = "usg-dhcproto-macros"
+version = "0.2.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

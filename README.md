@@ -1,8 +1,8 @@
 # dhcproto
 
-A DHCP parser and encoder for DHCPv4/DHCPv6. `dhcproto` aims to be a functionally complete DHCP implementation. Many common option types are implemented, PRs are welcome to flesh out missing types.
+This project was forked from bluecatengineering/dhcproto.
 
-**Attention!** We are developing a DHCP server using this library called [dora](https://github.com/bluecatengineering/dora)!
+A DHCP parser and encoder for DHCPv4/DHCPv6. `dhcproto` aims to be a functionally complete DHCP implementation. Many common option types are implemented, PRs are welcome to flesh out missing types.
 
 ## features
 
@@ -15,18 +15,18 @@ A DHCP parser and encoder for DHCPv4/DHCPv6. `dhcproto` aims to be a functionall
 
 ## crates.io
 
-<https://crates.io/crates/dhcproto>
+<https://crates.io/crates/usg-dhcproto>
 
 ## Minimum Rust Version
 
-This crate uses edition 2024, Rust 1.87 is required
+This crate uses edition 2024, Rust 1.95 is required
 
 ## Examples
 
 ### (v4) Decoding/Encoding
 
 ```rust
-use dhcproto::v4::{Message, Encoder, Decoder, Decodable, Encodable};
+use usg_dhcproto::v4::{Message, Encoder, Decoder, Decodable, Encodable};
 // decode
 let bytes = dhcp_offer();
 let msg = Message::decode(&mut Decoder::new(&bytes))?;
@@ -39,7 +39,7 @@ msg.encode(&mut e)?;
 ### (v4) Constructing messages
 
 ```rust
-use dhcproto::{v4, Encodable, Encoder};
+use usg_dhcproto::{v4, Encodable, Encoder};
 // hardware addr
 let chaddr = vec![
     29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,

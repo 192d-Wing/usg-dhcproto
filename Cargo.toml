@@ -1,5 +1,6 @@
 [package]
-name = "dhcproto"
+#Forked from bluecatengineering/dhcproto
+name = "usg-dhcproto"
 version = "0.16.0"
 authors = [
 	"Evan Cameron <cameron.evan@gmail.com>",
@@ -11,7 +12,7 @@ description = """
 A DHCP parser and encoder for DHCPv4/DHCPv6. `dhcproto` aims to be a functionally complete DHCP implementation.
 """
 categories = ["network-programming", "encoding", "parser-implementations"]
-repository = "https://github.com/bluecatengineering/dhcproto"
+repository = "https://github.com/192d-Wing/usg-dhcproto"
 keywords = ["dhcp", "dhcpv4", "dhcpv6"]
 license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -21,7 +22,7 @@ thiserror = "2.0.18"
 rand = "0.10.1"
 serde = { version = "1.0", features = ["derive"], optional = true }
 hickory-proto = { version = "0.26.1", default-features = false }
-dhcproto-macros = { path = "./dhcproto-macros", version = "0.2.0" }
+usg-dhcproto-macros = { path = "./dhcproto-macros", version = "0.2.0" }
 ipnet = "2.12.0"
 
 [features]

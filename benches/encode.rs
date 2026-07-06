@@ -1,6 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use dhcproto::v4::Message;
-use dhcproto::{Decodable, Encodable, Encoder};
+use usg_dhcproto::v4::Message;
+use usg_dhcproto::{Decodable, Encodable, Encoder};
 
 fn encode_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("encode");
@@ -143,7 +143,7 @@ fn encode_benches(c: &mut Criterion) {
             0, 52, 1, 4, 255, 255, 255, 0, 3, 4, 192, 168, 0, 1, 6, 8, 192, 168, 0, 1, 192, 168, 1,
             1, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let x = dhcproto::v4::DhcpOptions::from_bytes(opts).unwrap();
+        let x = usg_dhcproto::v4::DhcpOptions::from_bytes(opts).unwrap();
         let mut bytes = Vec::with_capacity(opts.len());
         b.iter(|| {
             x.encode(&mut Encoder::new(&mut bytes)).unwrap();

@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.16.0]
 
+First release of the `usg-dhcproto` fork of
+[bluecatengineering/dhcproto](https://github.com/bluecatengineering/dhcproto).
+The crate is published as `usg-dhcproto` and imported as `usg_dhcproto`; the
+proc-macro crate is `usg-dhcproto-macros`.
+
+### Added
+
+- DHCPv4 Option Overload (RFC 2131 §4.1 / RFC 2132 §9.3): the owned `Message`
+  decoder now parses DHCP options carried in the `sname`/`file` header fields
+  when option 52 is present, reassembling an option whose value is split across
+  regions per RFC 3396.
+- `borrowed::Message::opts_overloaded()`, which iterates options across the main
+  options field plus any overloaded `sname`/`file` fields.
+
 ### Changed
 
+- Minimum supported Rust version raised to 1.95.
 - **breaking** All remaining numeric enum types have been converted to `#[repr(transparent)]` newtype structs with `pub const` associated constants, matching the pattern introduced for `Architecture` in 0.15.0. Affected types:
   - v4: `Opcode`, `HType`, `NodeType`, `AutoConfig`, `MessageType`, `RelayCode`, `QueryState`, `Code`
   - v6: `MessageType`, `Status`, `HType`, `OptionCode`, `OROCode`
@@ -18,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `DhcpOptions::decode` no longer discards the options that follow an option
+  which fails to decode; a malformed or unsupported option is skipped and
+  parsing continues.
 - `OROCode` was missing `S46Br` (code 90), which IANA marks as a valid Client ORO option.
 
 ## [0.15.0]

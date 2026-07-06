@@ -1,0 +1,72 @@
+name: Release
+
+# Publishes usg-dhcproto (and its usg-dhcproto-macros dependency) to crates.io
+# when a version tag is pushed, e.g. `git tag v0.16.0 && git push origin v0.16.0`.
+#
+# Requires a repository secret CRATES_IO holding a crates.io API token with
+# publish scope for both crates.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write # needed to create the GitHub release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify tag matches crate version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          crate_version="$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "usg-dhcproto") | .version')"
+          echo "tag=${tag_version} crate=${crate_version}"
+          if [ "${tag_version}" != "${crate_version}" ]; then
+            echo "::error::Tag v${tag_version} does not match Cargo.toml version ${crate_version}"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: cargo test --all-features --locked
+
+      - name: Publish usg-dhcproto-macros (skip if already published)
+        working-directory: dhcproto-macros
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO }}
+        run: |
+          name="usg-dhcproto-macros"
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          if curl -sf4 -H "User-Agent: usg-dhcproto release workflow" \
+              "https://crates.io/api/v1/crates/${name}/${version}" >/dev/null; then
+            echo "${name} ${version} already on crates.io; skipping"
+          else
+            # cargo publish waits for the new version to appear in the index
+            # before returning, so the main crate can resolve it below.
+            cargo publish
+          fi
+
+      - name: Publish usg-dhcproto
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO }}
+        run: cargo publish --all-features
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes

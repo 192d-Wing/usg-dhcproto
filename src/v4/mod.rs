@@ -6,7 +6,7 @@
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use dhcproto::{v4, Encodable, Encoder};
+//! use usg_dhcproto::{v4, Encodable, Encoder};
 //! // arbitrary hardware addr
 //! let chaddr = vec![
 //!     29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
@@ -72,7 +72,7 @@
 //! #        ]
 //! #    }
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use dhcproto::{v4::Message, Decoder, Decodable};
+//! use usg_dhcproto::{v4::Message, Decoder, Decodable};
 //! let offer = bootreq();
 //! let msg = Message::decode(&mut Decoder::new(&offer))?;
 //! # Ok(()) }

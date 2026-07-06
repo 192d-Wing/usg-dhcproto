@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 // * "Docstring" is the documentation string that will be added to the variant in the OptionCode enum
 // * (T0,..TN) is the associated variables (if any). e.g. Ipv4Addr for "SubnetMask" or bool for "IpForwarding".
 //   can contain more than one type but needs to be enclosed in parenthesis even if it's just a single variable.
-dhcproto_macros::declare_codes!(
+usg_dhcproto_macros::declare_codes!(
     {0,   Pad, "Padding"},
     {1,   SubnetMask, "Subnet Mask", (Ipv4Addr)},
     {2,   TimeOffset, "Time Offset", (i32)},
@@ -158,7 +158,7 @@ dhcproto_macros::declare_codes!(
 ///
 /// ex
 /// ```rust
-/// use dhcproto::v4;
+/// use usg_dhcproto::v4;
 ///
 /// let mut msg = v4::Message::default();
 ///  msg.opts_mut()
@@ -205,7 +205,7 @@ impl DhcpOptions {
     /// insert a new [`DhcpOption`]
     ///
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Discover));
     /// ```
@@ -218,7 +218,7 @@ impl DhcpOptions {
     }
     /// iterate over entries
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Offer));
     /// opts.insert(DhcpOption::SubnetMask([198, 168, 0, 1].into()));
@@ -235,7 +235,7 @@ impl DhcpOptions {
     }
     /// return message type
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Offer));
     /// assert_eq!(opts.msg_type(), Some(MessageType::Offer));
@@ -249,7 +249,7 @@ impl DhcpOptions {
     }
     /// determine if options contains a specific message type
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Offer));
     /// assert!(opts.has_msg_type(MessageType::Offer));
@@ -260,7 +260,7 @@ impl DhcpOptions {
     }
     /// clear all options
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Discover));
     /// assert!(opts.len() == 1);
@@ -272,7 +272,7 @@ impl DhcpOptions {
     }
     /// Returns `true` if there are no options
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Offer));
     /// assert!(!opts.is_empty());
@@ -289,7 +289,7 @@ impl DhcpOptions {
     }
     /// Returns number of Options
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Offer));
     /// assert_eq!(opts.len(), 1);
@@ -300,7 +300,7 @@ impl DhcpOptions {
     /// Returns true if the option code exists in the map
     ///
     /// ```
-    /// # use dhcproto::v4::{MessageType, DhcpOption, DhcpOptions, OptionCode};
+    /// # use usg_dhcproto::v4::{MessageType, DhcpOption, DhcpOptions, OptionCode};
     /// let mut opts = DhcpOptions::new();
     /// opts.insert(DhcpOption::MessageType(MessageType::Discover));
     ///
@@ -923,7 +923,7 @@ impl Decodable for DhcpOption {
 /// Splits `bytes` into chunks of up to u8::MAX (255 is the max opt length),
 /// where each chunk is prepended by the length of the chunk and the code.
 /// ```
-/// use dhcproto::{encoder::Encoder, v4::{OptionCode, encode_long_opt_bytes}};
+/// use usg_dhcproto::{encoder::Encoder, v4::{OptionCode, encode_long_opt_bytes}};
 ///
 /// let mut buf = Vec::new();
 /// let mut e = Encoder::new(&mut buf);
@@ -975,7 +975,7 @@ pub fn encode_long_opt_domains(
 /// INVARIANT: `factor` must equal the number of bytes in each `T`
 /// ```
 /// # use std::{iter, net::Ipv4Addr};
-/// use dhcproto::{encoder::Encoder, v4::{OptionCode, encode_long_opt_chunks}};
+/// use usg_dhcproto::{encoder::Encoder, v4::{OptionCode, encode_long_opt_chunks}};
 ///
 /// let mut buf = Vec::new();
 /// let mut e = Encoder::new(&mut buf);

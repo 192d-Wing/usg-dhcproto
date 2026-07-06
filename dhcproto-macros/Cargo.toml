@@ -1,12 +1,12 @@
 [package]
 edition = "2024"
-name = "dhcproto-macros"
+name = "usg-dhcproto-macros"
 version = "0.2.0"
 description = """
 A macro library for generating option types for dhcproto
 """
 categories = ["network-programming", "encoding", "parser-implementations"]
-repository = "https://github.com/bluecatengineering/dhcproto"
+repository = "https://github.com/192d-Wing/usg-dhcproto"
 keywords = ["dhcp", "dhcpv4", "dhcpv6"]
 license = "MIT"
 

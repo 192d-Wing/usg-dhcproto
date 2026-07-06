@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// in [`DhcpOption::RelayAgentInformation`]
 ///
 /// ```rust
-/// use dhcproto::v4::{self, relay::{RelayInfo, RelayAgentInformation}};
+/// use usg_dhcproto::v4::{self, relay::{RelayInfo, RelayAgentInformation}};
 ///
 /// let mut info = RelayAgentInformation::default();
 /// info.insert(RelayInfo::LinkSelection("1.2.3.4".parse().unwrap()));

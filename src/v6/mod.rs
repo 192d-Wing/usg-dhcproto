@@ -6,7 +6,7 @@
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use dhcproto::{v6, Encodable, Encoder};
+//! use usg_dhcproto::{v6, Encodable, Encoder};
 //! // arbitrary DUID
 //! let duid = vec![
 //!     29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
@@ -38,7 +38,7 @@
 //! #     ]
 //! # }
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use dhcproto::{v6::Message, Decoder, Decodable, Encoder, Encodable};
+//! use usg_dhcproto::{v6::Message, Decoder, Decodable, Encoder, Encodable};
 //! // example message
 //! let solicit = solicit();
 //! // decode

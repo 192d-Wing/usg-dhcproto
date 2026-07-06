@@ -21,7 +21,7 @@
 //! ## DHCPv4
 //!
 //! ```rust
-//! use dhcproto::v4::{Message, Encoder, Decoder, Decodable, Encodable};
+//! use usg_dhcproto::v4::{Message, Encoder, Decoder, Decodable, Encodable};
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // decode
 //! let bytes = dhcp_offer();
@@ -63,7 +63,7 @@
 //! ## DHCPv6
 //!
 //! ```rust
-//! use dhcproto::v6::{Message, Encoder, Decoder, Decodable, Encodable};
+//! use usg_dhcproto::v6::{Message, Encoder, Decoder, Decodable, Encodable};
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // decode
 //! let bytes = solicit();

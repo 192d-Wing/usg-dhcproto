@@ -1,5 +1,5 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use dhcproto::Decodable;
+use usg_dhcproto::Decodable;
 
 fn decode_benches(c: &mut Criterion) {
     let mut g = c.benchmark_group("decode");
@@ -30,7 +30,7 @@ fn decode_benches(c: &mut Criterion) {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         b.iter(|| {
-            dhcproto::v4::Message::from_bytes(offer).unwrap();
+            usg_dhcproto::v4::Message::from_bytes(offer).unwrap();
         });
     });
 
@@ -64,7 +64,7 @@ fn decode_benches(c: &mut Criterion) {
             99, 130, 83, 99, // magic cookie
         ];
         b.iter(|| {
-            dhcproto::v4::Message::from_bytes(bootreq).unwrap();
+            usg_dhcproto::v4::Message::from_bytes(bootreq).unwrap();
         });
     });
 
@@ -95,7 +95,7 @@ fn decode_benches(c: &mut Criterion) {
             0x42, 0x33, 0x04, 0x00, 0x00, 0x00, 0x01, 0xff,
         ];
         b.iter(|| {
-            dhcproto::v4::Message::from_bytes(discover).unwrap();
+            usg_dhcproto::v4::Message::from_bytes(discover).unwrap();
         });
     });
 
@@ -125,7 +125,7 @@ fn decode_benches(c: &mut Criterion) {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         b.iter(|| {
-            dhcproto::v4::Message::from_bytes(other_offer).unwrap();
+            usg_dhcproto::v4::Message::from_bytes(other_offer).unwrap();
         });
     });
 
@@ -135,7 +135,7 @@ fn decode_benches(c: &mut Criterion) {
             0, 52, 1, 4, 255, 255, 255, 0, 3, 4, 192, 168, 0, 1, 6, 8, 192, 168, 0, 1, 192, 168, 1,
             1, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        b.iter(|| dhcproto::v4::DhcpOptions::from_bytes(opts).unwrap());
+        b.iter(|| usg_dhcproto::v4::DhcpOptions::from_bytes(opts).unwrap());
     });
 }
 
