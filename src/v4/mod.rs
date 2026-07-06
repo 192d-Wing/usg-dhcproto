@@ -718,6 +718,19 @@ mod tests {
     }
 
     #[test]
+    fn decode_full_sname_no_nul_preserved() -> Result<()> {
+        // a `sname` field that is completely filled (no NUL terminator) must be
+        // preserved rather than dropped.
+        let mut bytes = offer();
+        for b in &mut bytes[44..108] {
+            *b = b'x';
+        }
+        let msg = Message::decode(&mut Decoder::new(&bytes))?;
+        assert_eq!(msg.sname(), Some(&[b'x'; 64][..]));
+        Ok(())
+    }
+
+    #[test]
     fn decode_rejects_bad_magic() {
         // a packet whose magic cookie isn't 99.130.83.99 is not a valid DHCP
         // message and must be rejected rather than silently mis-parsed.

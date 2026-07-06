@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2]
+
+### Fixed
+
+- A completely filled DHCPv4 `sname`/`file` header field (one with no NUL
+  terminator) is no longer dropped during decode; the whole field is preserved.
+- Option 121 (Classless Static Route, RFC 3442) with a prefix length greater
+  than 32 is now rejected as invalid data instead of silently truncating the
+  route list.
+
 ## [0.16.1]
 
 ### Fixed
