@@ -96,6 +96,7 @@ pub mod relay;
 
 // re-export submodules from proto::msg
 pub use self::{flags::*, htype::*, opcode::*, options::*};
+use crate::decoder::trim_nul;
 pub use crate::{
     decoder::{Decodable, Decoder},
     encoder::{Encodable, Encoder},
@@ -469,28 +470,26 @@ impl Message {
     }
 }
 
-/// Trim a fixed-length header field at its first NUL, matching the semantics of
-/// [`Decoder::read_nul_bytes`]: a field that starts with NUL (or contains no NUL)
-/// decodes to `None`, otherwise the bytes up to and including the first NUL.
-fn trim_nul(bytes: &[u8]) -> Option<Vec<u8>> {
-    match bytes.iter().position(|&b| b == 0) {
-        Some(0) => None,
-        Some(n) => Some(bytes[..=n].to_vec()),
-        None => None,
-    }
-}
-
-/// Parse the option block held in an overloaded `sname`/`file` field and merge
-/// it into `opts`. Follows a "first region wins" policy: a code already present
-/// (i.e. seen in an earlier region) is not overwritten. See RFC 2131 §4.1.
-fn merge_overloaded(opts: &mut DhcpOptions, field: &[u8]) -> DecodeResult<()> {
-    let extra = DhcpOptions::decode(&mut Decoder::new(field))?;
-    for (code, opt) in extra {
-        if !opts.contains(code) {
-            opts.insert(opt);
+/// Length in bytes of the option TLVs at the start of `field`, up to (but not
+/// including) the first `End` marker. Stops early on a truncated option so the
+/// result is always a valid slice bound into `field`.
+fn options_len(field: &[u8]) -> usize {
+    let mut i = 0;
+    while i < field.len() {
+        match field[i] {
+            255 => break, // End
+            0 => i += 1,  // Pad
+            _ => {
+                let Some(&len) = field.get(i + 1) else { break };
+                let end = i + 2 + len as usize;
+                if end > field.len() {
+                    break; // truncated option
+                }
+                i = end;
+            }
         }
     }
-    Ok(())
+    i
 }
 
 impl Decodable for Message {
@@ -514,6 +513,9 @@ impl Decodable for Message {
         let file_raw = decoder.read::<128>()?;
         // TODO: check magic bytes against expected?
         let magic = decoder.read::<4>()?;
+        // The remaining bytes are the main options field; capture them so an
+        // overloaded field's options can be reassembled with them (RFC 3396).
+        let opts_raw = decoder.buffer();
         let mut opts = DhcpOptions::decode(decoder)?;
 
         // Option Overload - RFC 2131 §4.1 / RFC 2132 §9.3
@@ -523,16 +525,23 @@ impl Decodable for Message {
             Some(DhcpOption::OptionOverload(v)) => *v,
             _ => 0,
         };
-        // Interpretation order: options (done) -> file -> sname.
-        if overload & 0b01 != 0 {
-            merge_overloaded(&mut opts, &file_raw)?;
-        }
-        if overload & 0b10 != 0 {
-            merge_overloaded(&mut opts, &sname_raw)?;
-        }
-        // Once flattened into the options map, the overload marker no longer
-        // reflects reality (we don't re-produce overload on encode), so drop it.
         if overload != 0 {
+            // Concatenate the option streams of every active region into one
+            // buffer and decode it in a single pass, so an option split across
+            // a region boundary (RFC 3396) is reassembled rather than dropped.
+            // Region order: options -> file -> sname.
+            let mut combined = Vec::with_capacity(opts_raw.len() + 192);
+            combined.extend_from_slice(&opts_raw[..options_len(opts_raw)]);
+            if overload & 0b01 != 0 {
+                combined.extend_from_slice(&file_raw[..options_len(&file_raw)]);
+            }
+            if overload & 0b10 != 0 {
+                combined.extend_from_slice(&sname_raw[..options_len(&sname_raw)]);
+            }
+            combined.push(255); // End
+            opts = DhcpOptions::decode(&mut Decoder::new(&combined))?;
+            // The marker no longer reflects reality once the fields are
+            // flattened into the options map (we don't re-overload on encode).
             opts.remove(OptionCode::OptionOverload);
         }
 
@@ -815,17 +824,18 @@ mod tests {
     }
 
     #[test]
-    fn decode_option_overload_first_wins() -> Result<()> {
-        // DomainName is present in the main options field ("main") AND the
-        // overloaded file field ("file"); the main field must win.
-        let main = [53u8, 1, 1, 15, 4, b'm', b'a', b'i', b'n'];
-        let file_opts = [15u8, 4, b'f', b'i', b'l', b'e', 255];
-        let bytes = overload_msg(1, &main, &[], &file_opts);
+    fn decode_option_overload_rfc3396_split() -> Result<()> {
+        // A DomainName whose value is split across the `file` (part 1) and
+        // `sname` (part 2) regions must be reassembled per RFC 3396. Each region
+        // holds one same-code fragment; after concatenation the value is "abcdef".
+        let file_opts = [15u8, 3, b'a', b'b', b'c', 255];
+        let sname_opts = [15u8, 3, b'd', b'e', b'f', 255];
+        let bytes = overload_msg(3, &[53, 1, 1], &sname_opts, &file_opts);
         let msg = Message::decode(&mut Decoder::new(&bytes))?;
 
         assert_eq!(
             msg.opts().get(OptionCode::DomainName),
-            Some(&DhcpOption::DomainName("main".into()))
+            Some(&DhcpOption::DomainName("abcdef".into()))
         );
         Ok(())
     }
