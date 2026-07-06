@@ -168,6 +168,20 @@ impl<'a> Encoder<'a> {
         }
         Ok(())
     }
+    /// Pad the buffer with zero bytes until it is at least `min_len` bytes long.
+    ///
+    /// DHCP messages are frequently padded to a minimum size before sending
+    /// (RFC 1542 §2.1 requires BOOTP relay agents to accept at least
+    /// [`crate::v4::MIN_PACKET_SIZE`] bytes, and some servers/relays drop shorter
+    /// frames). Call this after encoding a message when the transport requires
+    /// it; the trailing zeros are `Pad` options and are ignored on decode. This
+    /// is a no-op if the buffer already reaches `min_len`.
+    pub fn pad_to(&mut self, min_len: usize) -> EncodeResult<()> {
+        while self.offset < min_len {
+            self.write_u8(0)?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -195,6 +209,19 @@ mod tests {
         enc.write_slice(&[0, 1, 2, 3])?;
         assert_eq!(enc.buffer, &mut alloc::vec![0, 1, 2, 3]);
         assert_eq!(enc.offset, 4);
+        Ok(())
+    }
+
+    #[test]
+    fn pad_to_extends_then_noops() -> EncodeResult<()> {
+        let mut buf = Vec::new();
+        let mut enc = Encoder::new(&mut buf);
+        enc.write_slice(&[1, 2, 3])?;
+        enc.pad_to(6)?;
+        assert_eq!(enc.buffer(), &[1, 2, 3, 0, 0, 0]);
+        // already at/above min: no-op
+        enc.pad_to(4)?;
+        assert_eq!(enc.len_filled(), 6);
         Ok(())
     }
 }

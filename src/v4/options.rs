@@ -48,13 +48,13 @@ usg_dhcproto_macros::declare_codes!(
     {9,   LprServer, "LPR Server", (Vec<Ipv4Addr>)},
     {10,  ImpressServer, "Impress server", (Vec<Ipv4Addr>)},
     {11,  ResourceLocationServer, "Resource Location Server", (Vec<Ipv4Addr>)},
-    {12,  Hostname, "Host name", (String)},
+    {12,  Hostname, "Host name", (Vec<u8>)},
     {13,  BootFileSize, "Boot file size", (u16)},
-    {14,  MeritDumpFile, "Merit Dump File", (String)},
-    {15,  DomainName, "Domain Name", (String)},
+    {14,  MeritDumpFile, "Merit Dump File", (Vec<u8>)},
+    {15,  DomainName, "Domain Name", (Vec<u8>)},
     {16,  SwapServer, "Swap server", (Ipv4Addr)},
-    {17,  RootPath, "Root Path", (String)},
-    {18,  ExtensionsPath, "Extensions path", (String)},
+    {17,  RootPath, "Root Path", (Vec<u8>)},
+    {18,  ExtensionsPath, "Extensions path", (Vec<u8>)},
     {19,  IpForwarding, "IP forwarding", (bool)},
     {20,  NonLocalSrcRouting, "Non-local source routing", (bool)},
     {21,  PolicyFilter, "Policy Filter", (Vec<(Ipv4Addr, Ipv4Addr)>)},
@@ -76,14 +76,14 @@ usg_dhcproto_macros::declare_codes!(
     {37,  DefaultTcpTtl, "Default TCP TTL", (u8)},
     {38,  TcpKeepaliveInterval, "TCP keepalive interval", (u32)},
     {39,  TcpKeepaliveGarbage, "TCP keealive garbage", (bool)},
-    {40,  NisDomain, "Network information service domain", (String)},
+    {40,  NisDomain, "Network information service domain", (Vec<u8>)},
     {41,  NisServers, "NIS servers", (Vec<Ipv4Addr>)},
     {42,  NtpServers, "NTP servers", (Vec<Ipv4Addr>)},
     {43,  VendorExtensions, "Vendor Extensions - can contain encapsulated options", (Vec<u8>)}, // TODO: Hashmap<u8, UnknownOption>?
     {44,  NetBiosNameServers, "NetBIOS over TCP/IP name server", (Vec<Ipv4Addr>)},
     {45,  NetBiosDatagramDistributionServer, "NetBIOS over TCP/IP Datagram Distribution Server", (Vec<Ipv4Addr>)},
     {46,  NetBiosNodeType, "NetBIOS over TCP/IP Node Type", (NodeType)},
-    {47,  NetBiosScope, "NetBIOS over TCP/IP Scope", (String)},
+    {47,  NetBiosScope, "NetBIOS over TCP/IP Scope", (Vec<u8>)},
     {48,  XFontServer, "X Window System Font Server", (Vec<Ipv4Addr>)},
     {49,  XDisplayManager, "Window System Display Manager", (Vec<Ipv4Addr>)},
     {50,  RequestedIpAddress, "Requested IP Address", (Ipv4Addr)},
@@ -92,15 +92,15 @@ usg_dhcproto_macros::declare_codes!(
     {53,  MessageType, "Message Type", (MessageType)},
     {54,  ServerIdentifier, "Server Identifier", (Ipv4Addr)},
     {55,  ParameterRequestList, "Parameter Request List", (Vec<OptionCode>)},
-    {56,  Message, "Message", (String)},
+    {56,  Message, "Message", (Vec<u8>)},
     {57,  MaxMessageSize, "Maximum DHCP Message Size", (u16)},
     {58,  Renewal, "Renewal (T1) Time Value", (u32)},
     {59,  Rebinding, "Rebinding (T2) Time Value", (u32)},
     {60,  ClassIdentifier, "Class-identifier", (Vec<u8>)},
     {61,  ClientIdentifier, "Client Identifier", (Vec<u8>)},
-    {62,  NwipDomainName, "Netware/IP Domain Name", (String)},
+    {62,  NwipDomainName, "Netware/IP Domain Name", (Vec<u8>)},
     {63,  NwipInformation, "Netware/IP Information - <https://www.rfc-editor.org/rfc/rfc2242.html>", (Vec<u8>)}, // TODO: https://www.rfc-editor.org/rfc/rfc2242.html sub opts
-    {64,  NispServiceDomain, "NIS+ Domain Option", (String)},
+    {64,  NispServiceDomain, "NIS+ Domain Option", (Vec<u8>)},
     {65,  NispServers, "NIS+ Server Addr", (Vec<Ipv4Addr>)},
     {66,  TFTPServerName, "TFTP Server Name - <https://www.rfc-editor.org/rfc/rfc2132.html>", (Vec<u8>)},
     {67,  BootfileName, "Bootfile Name - <https://www.rfc-editor.org/rfc/rfc2132.html>", (Vec<u8>)},
@@ -125,8 +125,8 @@ usg_dhcproto_macros::declare_codes!(
     {93,  ClientSystemArchitecture, "Client System Architecture - <https://www.rfc-editor.org/rfc/rfc4578.html>", (Architecture)},
     {94,  ClientNetworkInterface, "Client Network Interface - <https://www.rfc-editor.org/rfc/rfc4578.html>", (u8, u8, u8)},
     {97,  ClientMachineIdentifier, "Client Machine Identifier - <https://www.rfc-editor.org/rfc/rfc4578.html>", (Vec<u8>)},
-    {100, TimezonePosixString, "TZ-Posix String - <https://datatracker.ietf.org/doc/html/rfc4833>", (String)},
-    {101, TimezoneDatabaseString, "TZ-Database String - <https://datatracker.ietf.org/doc/html/rfc4833>", (String)},
+    {100, TimezonePosixString, "TZ-Posix String - <https://datatracker.ietf.org/doc/html/rfc4833>", (Vec<u8>)},
+    {101, TimezoneDatabaseString, "TZ-Database String - <https://datatracker.ietf.org/doc/html/rfc4833>", (Vec<u8>)},
     {106, Ipv6OnlyPreferred, "IPv6-Only Preferred - <https://datatracker.ietf.org/doc/html/rfc8925>", (u32)},
     {114, CaptivePortal, "Captive Portal - <https://datatracker.ietf.org/doc/html/rfc8910>", (String)},
     {116, DisableSLAAC, "Disable Stateless Autoconfig for Ipv4 - <https://datatracker.ietf.org/doc/html/rfc2563>", (AutoConfig)},
@@ -653,13 +653,13 @@ pub(crate) fn decode_inner(
         OptionCode::LprServer => LprServer(decoder.read_ipv4s(len)?),
         OptionCode::ImpressServer => ImpressServer(decoder.read_ipv4s(len)?),
         OptionCode::ResourceLocationServer => ResourceLocationServer(decoder.read_ipv4s(len)?),
-        OptionCode::Hostname => Hostname(decoder.read_string(len)?),
+        OptionCode::Hostname => Hostname(decoder.read_slice(len)?.to_vec()),
         OptionCode::BootFileSize => BootFileSize(decoder.read_u16()?),
-        OptionCode::MeritDumpFile => MeritDumpFile(decoder.read_string(len)?),
-        OptionCode::DomainName => DomainName(decoder.read_string(len)?),
+        OptionCode::MeritDumpFile => MeritDumpFile(decoder.read_slice(len)?.to_vec()),
+        OptionCode::DomainName => DomainName(decoder.read_slice(len)?.to_vec()),
         OptionCode::SwapServer => SwapServer(decoder.read_ipv4(len)?),
-        OptionCode::RootPath => RootPath(decoder.read_string(len)?),
-        OptionCode::ExtensionsPath => ExtensionsPath(decoder.read_string(len)?),
+        OptionCode::RootPath => RootPath(decoder.read_slice(len)?.to_vec()),
+        OptionCode::ExtensionsPath => ExtensionsPath(decoder.read_slice(len)?.to_vec()),
         OptionCode::IpForwarding => IpForwarding(decoder.read_bool()?),
         OptionCode::NonLocalSrcRouting => NonLocalSrcRouting(decoder.read_bool()?),
         OptionCode::PolicyFilter => PolicyFilter(decoder.read_pair_ipv4s(len)?),
@@ -687,7 +687,7 @@ pub(crate) fn decode_inner(
         OptionCode::DefaultTcpTtl => DefaultTcpTtl(decoder.read_u8()?),
         OptionCode::TcpKeepaliveInterval => TcpKeepaliveInterval(decoder.read_u32()?),
         OptionCode::TcpKeepaliveGarbage => TcpKeepaliveGarbage(decoder.read_bool()?),
-        OptionCode::NisDomain => NisDomain(decoder.read_string(len)?),
+        OptionCode::NisDomain => NisDomain(decoder.read_slice(len)?.to_vec()),
         OptionCode::NisServers => NisServers(decoder.read_ipv4s(len)?),
         OptionCode::NtpServers => NtpServers(decoder.read_ipv4s(len)?),
         OptionCode::VendorExtensions => VendorExtensions(decoder.read_slice(len)?.to_vec()),
@@ -696,7 +696,7 @@ pub(crate) fn decode_inner(
             NetBiosDatagramDistributionServer(decoder.read_ipv4s(len)?)
         }
         OptionCode::NetBiosNodeType => NetBiosNodeType(decoder.read_u8()?.into()),
-        OptionCode::NetBiosScope => NetBiosScope(decoder.read_string(len)?),
+        OptionCode::NetBiosScope => NetBiosScope(decoder.read_slice(len)?.to_vec()),
         OptionCode::XFontServer => XFontServer(decoder.read_ipv4s(len)?),
         OptionCode::XDisplayManager => XDisplayManager(decoder.read_ipv4s(len)?),
         OptionCode::RequestedIpAddress => RequestedIpAddress(decoder.read_ipv4(len)?),
@@ -711,15 +711,15 @@ pub(crate) fn decode_inner(
                 .map(|code| (*code).into())
                 .collect(),
         ),
-        OptionCode::Message => Message(decoder.read_string(len)?),
+        OptionCode::Message => Message(decoder.read_slice(len)?.to_vec()),
         OptionCode::MaxMessageSize => MaxMessageSize(decoder.read_u16()?),
         OptionCode::Renewal => Renewal(decoder.read_u32()?),
         OptionCode::Rebinding => Rebinding(decoder.read_u32()?),
         OptionCode::ClassIdentifier => ClassIdentifier(decoder.read_slice(len)?.to_vec()),
         OptionCode::ClientIdentifier => ClientIdentifier(decoder.read_slice(len)?.to_vec()),
-        OptionCode::NwipDomainName => NwipDomainName(decoder.read_string(len)?),
+        OptionCode::NwipDomainName => NwipDomainName(decoder.read_slice(len)?.to_vec()),
         OptionCode::NwipInformation => NwipInformation(decoder.read_slice(len)?.to_vec()),
-        OptionCode::NispServiceDomain => NispServiceDomain(decoder.read_string(len)?),
+        OptionCode::NispServiceDomain => NispServiceDomain(decoder.read_slice(len)?.to_vec()),
         OptionCode::NispServers => NispServers(decoder.read_ipv4s(len)?),
         OptionCode::TFTPServerName => TFTPServerName(decoder.read_slice(len)?.to_vec()),
         OptionCode::BootfileName => BootfileName(decoder.read_slice(len)?.to_vec()),
@@ -759,8 +759,10 @@ pub(crate) fn decode_inner(
         OptionCode::ClientMachineIdentifier => {
             ClientMachineIdentifier(decoder.read_slice(len)?.to_vec())
         }
-        OptionCode::TimezonePosixString => TimezonePosixString(decoder.read_string(len)?),
-        OptionCode::TimezoneDatabaseString => TimezoneDatabaseString(decoder.read_string(len)?),
+        OptionCode::TimezonePosixString => TimezonePosixString(decoder.read_slice(len)?.to_vec()),
+        OptionCode::TimezoneDatabaseString => {
+            TimezoneDatabaseString(decoder.read_slice(len)?.to_vec())
+        }
         OptionCode::Ipv6OnlyPreferred => Ipv6OnlyPreferred(decoder.read_u32()?),
         OptionCode::CaptivePortal => CaptivePortal(decoder.read_str(len)?.to_string()),
         OptionCode::DisableSLAAC => DisableSLAAC(decoder.read_u8()?.into()),
@@ -1093,7 +1095,7 @@ impl Encodable for DhcpOption {
             | O::NispServiceDomain(s)
             | O::TimezonePosixString(s)
             | O::TimezoneDatabaseString(s) => {
-                encode_long_opt_bytes(code, s.as_bytes(), e)?;
+                encode_long_opt_bytes(code, s, e)?;
             }
             O::BootFileSize(num)
             | O::MaxDatagramSize(num)
@@ -1446,21 +1448,31 @@ mod tests {
 
     #[test]
     fn decode_skips_bad_option() -> Result<()> {
-        // A Hostname with invalid UTF-8 fails to decode; the options that follow
-        // it (here a SubnetMask) must still be parsed rather than dropped.
+        // A SubnetMask with a wrong length (3, not 4) fails to decode; the
+        // options that follow it (here a Router) must still be parsed rather
+        // than dropped.
         let buf = [
             53, 1, 1, // MessageType: Discover
-            12, 3, 0xFF, 0xFF, 0xFF, // Hostname (invalid UTF-8) -> skipped
-            1, 4, 255, 255, 255, 0,   // SubnetMask
+            1, 3, 1, 2, 3, // SubnetMask, length 3 (invalid) -> skipped
+            3, 4, 10, 0, 0, 1,   // Router
             255, // End
         ];
         let opts = DhcpOptions::decode(&mut Decoder::new(&buf))?;
         assert_eq!(opts.msg_type(), Some(MessageType::Discover));
-        assert!(!opts.contains(OptionCode::Hostname));
+        assert!(!opts.contains(OptionCode::SubnetMask));
         assert_eq!(
-            opts.get(OptionCode::SubnetMask),
-            Some(&DhcpOption::SubnetMask(Ipv4Addr::new(255, 255, 255, 0)))
+            opts.get(OptionCode::Router),
+            Some(&DhcpOption::Router(vec![Ipv4Addr::new(10, 0, 0, 1)]))
         );
+        Ok(())
+    }
+
+    #[test]
+    fn decode_non_ascii_hostname_preserved() -> Result<()> {
+        // free-text options carry raw bytes, so a non-UTF-8 value (which real
+        // devices send) is preserved rather than failing to decode.
+        let opt = DhcpOption::decode(&mut Decoder::new(&[12, 3, 0xFF, 0xFE, 0xFD]))?;
+        assert_eq!(opt, DhcpOption::Hostname(vec![0xFF, 0xFE, 0xFD]));
         Ok(())
     }
 
@@ -1518,7 +1530,7 @@ mod tests {
     #[test]
     fn test_str() -> Result<()> {
         test_opt(
-            DhcpOption::Hostname("foobar.com".to_string()),
+            DhcpOption::Hostname(b"foobar.com".to_vec()),
             vec![12, 10, 102, 111, 111, 98, 97, 114, 46, 99, 111, 109],
         )?;
 

@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0]
+
+### Changed
+
+- **breaking** The free-text DHCPv4 options that were typed `String` now carry
+  raw bytes (`Vec<u8>`), so a value that isn't valid UTF-8 (which non-conformant
+  devices send) is preserved instead of failing to decode. Affected variants:
+  `Hostname`, `MeritDumpFile`, `DomainName`, `RootPath`, `ExtensionsPath`,
+  `NisDomain`, `NetBiosScope`, `Message`, `NwipDomainName`, `NispServiceDomain`,
+  `TimezonePosixString`, `TimezoneDatabaseString`. (`CaptivePortal` stays a
+  `String`, as RFC 8910 defines it as a URI.)
+
+### Added
+
+- `Encoder::pad_to(min_len)` to pad an encoded message up to a minimum size
+  (e.g. the RFC 1542 §2.1 / `MIN_PACKET_SIZE` BOOTP minimum).
+- `Message::encode_overloaded(e, max_len)` to produce a message using option
+  overload (RFC 2131 §4.1): options that don't fit within `max_len` are spilled
+  into the `file` then `sname` header fields, with the option-52 marker set
+  automatically.
+- `EncodeError::MessageTooLarge`.
+
 ## [0.16.2]
 
 ### Fixed
