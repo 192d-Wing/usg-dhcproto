@@ -28,14 +28,16 @@ pub trait Decodable: Sized {
     }
 }
 
-/// Trim a fixed-length field at its first NUL: a field that starts with NUL (or
-/// contains no NUL) yields `None`; otherwise the bytes up to and including the
-/// first NUL. This is the shared implementation behind
-/// [`Decoder::read_nul_bytes`] and the DHCPv4 `sname`/`file` decoding.
+/// Trim a fixed-length field at its first NUL: a field that starts with NUL
+/// yields `None` (unset); a field with no NUL at all is returned whole (the
+/// value fills the field); otherwise the bytes up to and including the first
+/// NUL. This is the shared implementation behind [`Decoder::read_nul_bytes`]
+/// and the DHCPv4 `sname`/`file` decoding.
 pub(crate) fn trim_nul(bytes: &[u8]) -> Option<Vec<u8>> {
     match bytes.iter().position(|&b| b == 0) {
-        Some(0) | None => None,
-        Some(n) => Some(bytes[..=n].to_vec()),
+        Some(0) => None,                       // starts with NUL -> unset
+        Some(n) => Some(bytes[..=n].to_vec()), // value up to and including the NUL
+        None => Some(bytes.to_vec()),          // no NUL -> the whole field is the value
     }
 }
 

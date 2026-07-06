@@ -818,7 +818,12 @@ pub(crate) fn decode_inner(
             let mut route_dec = Decoder::new(decoder.read_slice(len)?);
             while let Ok(prefix_len) = route_dec.read_u8() {
                 if prefix_len > 32 {
-                    break;
+                    // RFC 3442 prefix lengths are 0..=32; reject rather than
+                    // silently truncating the route list.
+                    return Err(crate::error::DecodeError::InvalidData(
+                        prefix_len as u32,
+                        "classless static route prefix length exceeds 32",
+                    ));
                 }
 
                 // Significant bytes to hold the prefix
@@ -1741,6 +1746,13 @@ mod tests {
         )?;
 
         Ok(())
+    }
+
+    #[test]
+    fn classless_static_route_rejects_bad_prefix() {
+        // RFC 3442: prefix length must be 0..=32; a prefix of 33 is rejected.
+        let buf = [121u8, 1, 33];
+        assert!(DhcpOption::decode(&mut Decoder::new(&buf)).is_err());
     }
 
     #[test]
