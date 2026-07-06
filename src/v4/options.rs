@@ -350,18 +350,22 @@ impl Decodable for DhcpOptions {
     fn decode(decoder: &mut Decoder<'_>) -> DecodeResult<Self> {
         // represented as a vector in the actual message
         let mut opts = BTreeMap::new();
-        // should we error the whole parser if we fail to parse an
-        // option or just stop parsing options? -- here we will just stop
-        while let Ok(opt) = DhcpOption::decode(decoder) {
-            // we throw away PAD bytes here
-            match opt {
-                DhcpOption::End => {
-                    break;
-                }
-                DhcpOption::Pad => {}
-                _ => {
+        loop {
+            let remaining = decoder.buffer().len();
+            match DhcpOption::decode(decoder) {
+                Ok(DhcpOption::End) => break,
+                // we throw away PAD bytes here
+                Ok(DhcpOption::Pad) => {}
+                Ok(opt) => {
                     opts.insert(OptionCode::from(&opt), opt);
                 }
+                // A single option that fails to decode (bad UTF-8, a zero-length
+                // option that expects a value, etc.) shouldn't discard the
+                // options that follow it. If the decoder advanced past the bad
+                // option, skip it and keep going; if it made no progress we
+                // can't recover, so stop.
+                Err(_) if decoder.buffer().len() < remaining => {}
+                Err(_) => break,
             }
         }
         Ok(DhcpOptions(opts))
@@ -1432,6 +1436,26 @@ mod tests {
         // not comparing len as we don't add PAD bytes
         // assert_eq!(input.len(), len);
         assert_eq!(opts.len(), len);
+        Ok(())
+    }
+
+    #[test]
+    fn decode_skips_bad_option() -> Result<()> {
+        // A Hostname with invalid UTF-8 fails to decode; the options that follow
+        // it (here a SubnetMask) must still be parsed rather than dropped.
+        let buf = [
+            53, 1, 1, // MessageType: Discover
+            12, 3, 0xFF, 0xFF, 0xFF, // Hostname (invalid UTF-8) -> skipped
+            1, 4, 255, 255, 255, 0,   // SubnetMask
+            255, // End
+        ];
+        let opts = DhcpOptions::decode(&mut Decoder::new(&buf))?;
+        assert_eq!(opts.msg_type(), Some(MessageType::Discover));
+        assert!(!opts.contains(OptionCode::Hostname));
+        assert_eq!(
+            opts.get(OptionCode::SubnetMask),
+            Some(&DhcpOption::SubnetMask(Ipv4Addr::new(255, 255, 255, 0)))
+        );
         Ok(())
     }
 

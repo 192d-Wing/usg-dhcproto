@@ -6,7 +6,7 @@ authors = [
 	"Ian Laidlaw <ilaidlaw@bluecatnetworks.com>",
 ]
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.95"
 description = """
 A DHCP parser and encoder for DHCPv4/DHCPv6. `dhcproto` aims to be a functionally complete DHCP implementation.
 """

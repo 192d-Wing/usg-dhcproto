@@ -28,6 +28,17 @@ pub trait Decodable: Sized {
     }
 }
 
+/// Trim a fixed-length field at its first NUL: a field that starts with NUL (or
+/// contains no NUL) yields `None`; otherwise the bytes up to and including the
+/// first NUL. This is the shared implementation behind
+/// [`Decoder::read_nul_bytes`] and the DHCPv4 `sname`/`file` decoding.
+pub(crate) fn trim_nul(bytes: &[u8]) -> Option<Vec<u8>> {
+    match bytes.iter().position(|&b| b == 0) {
+        Some(0) | None => None,
+        Some(n) => Some(bytes[..=n].to_vec()),
+    }
+}
+
 /// Decoder type. Wraps a buffer which only contains bytes that have not been read yet
 #[derive(Debug, Clone, Copy)]
 pub struct Decoder<'a> {
@@ -111,14 +122,7 @@ impl<'a> Decoder<'a> {
     }
 
     pub fn read_nul_bytes<const MAX: usize>(&mut self) -> DecodeResult<Option<Vec<u8>>> {
-        let bytes = self.read::<MAX>()?;
-        let nul_idx = bytes.iter().position(|&b| b == 0);
-        match nul_idx {
-            Some(0) => Ok(None),
-            Some(n) => Ok(Some(bytes[..=n].to_vec())),
-            // TODO: error?
-            None => Ok(None),
-        }
+        Ok(trim_nul(&self.read::<MAX>()?))
     }
 
     /// read `MAX` length bytes and read into utf-8 encoded `String`
@@ -219,7 +223,7 @@ impl<'a> Decoder<'a> {
     }
 
     /// return slice of buffer start at index of unread data
-    pub fn buffer(&self) -> &[u8] {
+    pub fn buffer(&self) -> &'a [u8] {
         self.buffer
     }
 }
