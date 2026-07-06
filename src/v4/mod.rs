@@ -620,21 +620,28 @@ impl Message {
     ///
     /// If all options fit within `max_len` this behaves like
     /// [`encode`](Encodable::encode) (no overload; the name fields are written
-    /// as usual). Returns [`EncodeError::MessageTooLarge`] if the options do not
-    /// fit even after using both header fields. Each option is placed whole into
-    /// a single region, so a single option larger than a field cannot spill into
-    /// it.
+    /// as usual). `max_len` must be at least 240 (the fixed header size).
+    /// Returns [`EncodeError::MessageTooLarge`] if the options do not fit even
+    /// after using both header fields. Each option is placed whole into a single
+    /// region, so a single option larger than a field cannot spill into it.
     pub fn encode_overloaded(&self, e: &mut Encoder<'_>, max_len: usize) -> EncodeResult<()> {
+        // The fixed header alone is 240 bytes; nothing smaller can be produced.
+        if max_len < 240 {
+            return Err(EncodeError::MessageTooLarge { max_len });
+        }
+
         // Encode each option to its own byte block, preserving order and
         // skipping any pre-existing overload marker (we set our own).
         let mut main = Vec::new();
         let mut file = Vec::new();
         let mut sname = Vec::new();
-        // Leave room for a terminating End in each field, and for the 3-byte
-        // option-52 marker at the start of the main options field.
-        const FILE_CAP: usize = 128 - 1;
-        const SNAME_CAP: usize = 64 - 1;
-        let main_cap = max_len.saturating_sub(240 + 1 + 3);
+        // The overloaded fields are fixed-size, so their option streams are
+        // terminated by the field boundary and need no End; only the
+        // variable-length main field needs room for the 3-byte option-52 marker
+        // plus a terminating End (accounted for in `main_cap`).
+        const FILE_CAP: usize = 128;
+        const SNAME_CAP: usize = 64;
+        let main_cap = max_len.saturating_sub(244);
 
         for (code, opt) in self.opts.iter() {
             if *code == OptionCode::OptionOverload {
@@ -653,9 +660,21 @@ impl Message {
             }
         }
 
-        // Nothing spilled -> a normal encode is correct and simpler.
+        // Nothing spilled -> a normal encode is correct and simpler. Strip any
+        // stray overload marker the caller left in the options (we excluded it
+        // when packing, so it must not survive into the emitted message).
         if file.is_empty() && sname.is_empty() {
+            if self.opts.contains(OptionCode::OptionOverload) {
+                let mut clean = self.clone();
+                clean.opts_mut().remove(OptionCode::OptionOverload);
+                return clean.encode(e);
+            }
             return self.encode(e);
+        }
+
+        // header(240) + option-52(3) + main options + End(1)
+        if 244 + main.len() > max_len {
+            return Err(EncodeError::MessageTooLarge { max_len });
         }
 
         let overload = u8::from(!file.is_empty()) | (u8::from(!sname.is_empty()) << 1);
@@ -674,18 +693,24 @@ impl Message {
         e.write_u32(self.giaddr.into())?;
         e.write_slice(&self.chaddr[..])?;
 
-        // sname field (44..108) comes before file on the wire
+        // sname field (44..108) comes before file on the wire. Terminate the
+        // option stream with End when there is room; a completely full field is
+        // terminated by its boundary.
         if sname.is_empty() {
             e.write_fill(&self.sname, 64)?;
         } else {
-            sname.push(255); // End
+            if sname.len() < 64 {
+                sname.push(255); // End
+            }
             e.write_fill_bytes(&sname, 64)?;
         }
         // file field (108..236)
         if file.is_empty() {
             e.write_fill(&self.fname, 128)?;
         } else {
-            file.push(255); // End
+            if file.len() < 128 {
+                file.push(255); // End
+            }
             e.write_fill_bytes(&file, 128)?;
         }
         e.write(self.magic)?;
@@ -855,6 +880,68 @@ mod tests {
         for (code, opt) in msg.opts().iter() {
             assert_eq!(decoded.opts().get(*code), Some(opt), "lost option {code:?}");
         }
+        Ok(())
+    }
+
+    #[test]
+    fn encode_overloaded_rejects_too_small_max_len() {
+        let mut msg = Message::default();
+        msg.opts_mut()
+            .insert(DhcpOption::Hostname(b"some-hostname-value".to_vec()));
+        // 242 < 244: an overloaded message (>= 244 bytes) cannot fit
+        let mut buf = Vec::new();
+        assert!(matches!(
+            msg.encode_overloaded(&mut Encoder::new(&mut buf), 242),
+            Err(EncodeError::MessageTooLarge { .. })
+        ));
+        // below the 240-byte header floor
+        let mut buf = Vec::new();
+        assert!(
+            msg.encode_overloaded(&mut Encoder::new(&mut buf), 100)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn encode_overloaded_option_exactly_fills_field() -> Result<()> {
+        // a 126-byte hostname is a 128-byte TLV that exactly fills the file
+        // field (which needs no End); it must pack rather than error.
+        let mut msg = Message::default();
+        msg.opts_mut()
+            .insert(DhcpOption::MessageType(MessageType::Offer));
+        msg.opts_mut().insert(DhcpOption::Hostname(vec![b'x'; 126]));
+
+        let mut buf = Vec::new();
+        // main too small for the 128-byte block, but the file field fits exactly
+        msg.encode_overloaded(&mut Encoder::new(&mut buf), 260)?;
+
+        let decoded = Message::decode(&mut Decoder::new(&buf))?;
+        assert_eq!(
+            decoded.opts().get(OptionCode::Hostname),
+            Some(&DhcpOption::Hostname(vec![b'x'; 126]))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn encode_overloaded_strips_stale_marker_on_no_spill() -> Result<()> {
+        // A stray option-52 the caller left in the options must not survive the
+        // no-spill path, else the decoder would parse the (name-holding) file
+        // field as options.
+        let mut msg = Message::default();
+        msg.opts_mut()
+            .insert(DhcpOption::MessageType(MessageType::Ack));
+        msg.opts_mut().insert(DhcpOption::OptionOverload(1));
+        // file field holds bytes that look like a Router option
+        msg.set_fname(&[3, 4, 10, 0, 0, 1]);
+
+        let mut buf = Vec::new();
+        msg.encode_overloaded(&mut Encoder::new(&mut buf), 576)?;
+
+        let decoded = Message::decode(&mut Decoder::new(&buf))?;
+        assert_eq!(decoded.opts().msg_type(), Some(MessageType::Ack));
+        // the marker was dropped, so the file field was NOT parsed as options
+        assert!(!decoded.opts().contains(OptionCode::Router));
         Ok(())
     }
 
