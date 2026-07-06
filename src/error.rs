@@ -66,6 +66,13 @@ pub enum EncodeError {
     #[error("trying to write more values than the max amount ({max_num})")]
     TooManyItems { max_num: usize },
 
+    /// options do not fit within the requested size, even using option overload
+    #[error("options do not fit within {max_len} bytes, even with option overload")]
+    MessageTooLarge {
+        /// the size limit that could not be met
+        max_len: usize,
+    },
+
     // /// io error
     // #[error("io error {0}")]
     // IoError(#[from] io::Error),

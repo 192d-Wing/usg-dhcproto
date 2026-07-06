@@ -612,6 +612,94 @@ impl Encodable for Message {
     }
 }
 
+impl Message {
+    /// Encode the message, spilling options that do not fit within `max_len`
+    /// bytes into the `file` then `sname` header fields (RFC 2131 §4.1 / RFC
+    /// 2132 §9.3 "option overload"). The option-52 marker is inserted
+    /// automatically, and an overloaded field's name value is not written.
+    ///
+    /// If all options fit within `max_len` this behaves like
+    /// [`encode`](Encodable::encode) (no overload; the name fields are written
+    /// as usual). Returns [`EncodeError::MessageTooLarge`] if the options do not
+    /// fit even after using both header fields. Each option is placed whole into
+    /// a single region, so a single option larger than a field cannot spill into
+    /// it.
+    pub fn encode_overloaded(&self, e: &mut Encoder<'_>, max_len: usize) -> EncodeResult<()> {
+        // Encode each option to its own byte block, preserving order and
+        // skipping any pre-existing overload marker (we set our own).
+        let mut main = Vec::new();
+        let mut file = Vec::new();
+        let mut sname = Vec::new();
+        // Leave room for a terminating End in each field, and for the 3-byte
+        // option-52 marker at the start of the main options field.
+        const FILE_CAP: usize = 128 - 1;
+        const SNAME_CAP: usize = 64 - 1;
+        let main_cap = max_len.saturating_sub(240 + 1 + 3);
+
+        for (code, opt) in self.opts.iter() {
+            if *code == OptionCode::OptionOverload {
+                continue;
+            }
+            let mut block = Vec::new();
+            opt.encode(&mut Encoder::new(&mut block))?;
+            if main.len() + block.len() <= main_cap {
+                main.extend_from_slice(&block);
+            } else if file.len() + block.len() <= FILE_CAP {
+                file.extend_from_slice(&block);
+            } else if sname.len() + block.len() <= SNAME_CAP {
+                sname.extend_from_slice(&block);
+            } else {
+                return Err(EncodeError::MessageTooLarge { max_len });
+            }
+        }
+
+        // Nothing spilled -> a normal encode is correct and simpler.
+        if file.is_empty() && sname.is_empty() {
+            return self.encode(e);
+        }
+
+        let overload = u8::from(!file.is_empty()) | (u8::from(!sname.is_empty()) << 1);
+
+        // header up to chaddr (offset 0..44)
+        self.opcode.encode(e)?;
+        self.htype.encode(e)?;
+        e.write_u8(self.hlen)?;
+        e.write_u8(self.hops)?;
+        e.write_u32(self.xid)?;
+        e.write_u16(self.secs)?;
+        e.write_u16(self.flags.into())?;
+        e.write_u32(self.ciaddr.into())?;
+        e.write_u32(self.yiaddr.into())?;
+        e.write_u32(self.siaddr.into())?;
+        e.write_u32(self.giaddr.into())?;
+        e.write_slice(&self.chaddr[..])?;
+
+        // sname field (44..108) comes before file on the wire
+        if sname.is_empty() {
+            e.write_fill(&self.sname, 64)?;
+        } else {
+            sname.push(255); // End
+            e.write_fill_bytes(&sname, 64)?;
+        }
+        // file field (108..236)
+        if file.is_empty() {
+            e.write_fill(&self.fname, 128)?;
+        } else {
+            file.push(255); // End
+            e.write_fill_bytes(&file, 128)?;
+        }
+        e.write(self.magic)?;
+
+        // main options field: the overload marker, the packed options, then End
+        e.write_u8(OptionCode::OptionOverload.into())?;
+        e.write_u8(1)?;
+        e.write_u8(overload)?;
+        e.write_slice(&main)?;
+        e.write_u8(255)?; // End
+        Ok(())
+    }
+}
+
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Message")
@@ -741,6 +829,51 @@ mod tests {
     }
 
     #[test]
+    fn encode_overloaded_round_trips() -> Result<()> {
+        let mut msg = Message::default();
+        let opts = msg.opts_mut();
+        opts.insert(DhcpOption::MessageType(MessageType::Offer));
+        opts.insert(DhcpOption::Hostname(
+            b"a-fairly-long-client-hostname".to_vec(),
+        ));
+        opts.insert(DhcpOption::DomainName(
+            b"dept.example.internal.test".to_vec(),
+        ));
+        opts.insert(DhcpOption::Message(
+            b"a somewhat lengthy status text here".to_vec(),
+        ));
+        opts.insert(DhcpOption::BootfileName(
+            b"/boot/images/pxelinux.0".to_vec(),
+        ));
+
+        // a small cap forces options to spill into the file/sname fields
+        let mut buf = Vec::new();
+        msg.encode_overloaded(&mut Encoder::new(&mut buf), 300)?;
+        assert!(buf.len() <= 300);
+
+        let decoded = Message::decode(&mut Decoder::new(&buf))?;
+        for (code, opt) in msg.opts().iter() {
+            assert_eq!(decoded.opts().get(*code), Some(opt), "lost option {code:?}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn encode_overloaded_no_spill_matches_encode() -> Result<()> {
+        // when everything fits, encode_overloaded == encode (no option 52)
+        let mut msg = Message::default();
+        msg.opts_mut()
+            .insert(DhcpOption::MessageType(MessageType::Ack));
+
+        let mut a = Vec::new();
+        msg.encode(&mut Encoder::new(&mut a))?;
+        let mut b = Vec::new();
+        msg.encode_overloaded(&mut Encoder::new(&mut b), 576)?;
+        assert_eq!(a, b);
+        Ok(())
+    }
+
+    #[test]
     fn test_set_chaddr() -> Result<()> {
         let mut msg = Message::new(
             Ipv4Addr::UNSPECIFIED,
@@ -810,11 +943,11 @@ mod tests {
         assert_eq!(msg.opts().msg_type(), Some(MessageType::Discover));
         assert_eq!(
             msg.opts().get(OptionCode::Hostname),
-            Some(&DhcpOption::Hostname("host".into()))
+            Some(&DhcpOption::Hostname(b"host".to_vec()))
         );
         assert_eq!(
             msg.opts().get(OptionCode::DomainName),
-            Some(&DhcpOption::DomainName("example".into()))
+            Some(&DhcpOption::DomainName(b"example".to_vec()))
         );
         // marker stripped; fields consumed as options
         assert!(!msg.opts().contains(OptionCode::OptionOverload));
@@ -832,7 +965,7 @@ mod tests {
 
         assert_eq!(
             msg.opts().get(OptionCode::DomainName),
-            Some(&DhcpOption::DomainName("example".into()))
+            Some(&DhcpOption::DomainName(b"example".to_vec()))
         );
         // sname preserved (matches read_nul_bytes: includes the terminating NUL)
         assert_eq!(msg.sname(), Some(&b"myhost\0"[..]));
@@ -850,7 +983,7 @@ mod tests {
 
         assert_eq!(
             msg.opts().get(OptionCode::Hostname),
-            Some(&DhcpOption::Hostname("host".into()))
+            Some(&DhcpOption::Hostname(b"host".to_vec()))
         );
         assert_eq!(msg.fname(), Some(&b"boot.img\0"[..]));
         assert!(!msg.opts().contains(OptionCode::DomainName));
@@ -869,7 +1002,7 @@ mod tests {
 
         assert_eq!(
             msg.opts().get(OptionCode::DomainName),
-            Some(&DhcpOption::DomainName("abcdef".into()))
+            Some(&DhcpOption::DomainName(b"abcdef".to_vec()))
         );
         Ok(())
     }
@@ -886,7 +1019,7 @@ mod tests {
 
         assert_eq!(
             msg.opts().get(OptionCode::DomainName),
-            Some(&DhcpOption::DomainName("abcdef".into()))
+            Some(&DhcpOption::DomainName(b"abcdef".to_vec()))
         );
         Ok(())
     }
@@ -903,7 +1036,7 @@ mod tests {
 
         assert_eq!(
             msg.opts().get(OptionCode::DomainName),
-            Some(&DhcpOption::DomainName("abcdef".into()))
+            Some(&DhcpOption::DomainName(b"abcdef".to_vec()))
         );
         Ok(())
     }
