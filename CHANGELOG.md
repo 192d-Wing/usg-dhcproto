@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1]
+
+### Fixed
+
+- DHCPv4 option 37 (`DefaultTcpTtl`) was decoded into the `DefaultIpTtl`
+  variant, so a decoded option 37 re-encoded as option 23. It now decodes to
+  `DefaultTcpTtl` and round-trips correctly.
+- The owned `Message` decoder now validates the DHCP magic cookie (RFC 2131)
+  and returns an error on mismatch, instead of silently mis-parsing the
+  trailing bytes as options. The borrowed decoder already checked it.
+
 ## [0.16.0]
 
 First release of the `usg-dhcproto` fork of

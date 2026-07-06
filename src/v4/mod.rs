@@ -515,8 +515,16 @@ impl Decodable for Message {
         // options field has been parsed for option 52.
         let sname_raw = decoder.read::<64>()?;
         let file_raw = decoder.read::<128>()?;
-        // TODO: check magic bytes against expected?
+        // The magic cookie (RFC 2131) marks the start of the options field; a
+        // mismatch means this isn't a conformant DHCP message and the trailing
+        // bytes can't be trusted as options.
         let magic = decoder.read::<4>()?;
+        if magic != MAGIC {
+            return Err(DecodeError::InvalidData(
+                u32::from_be_bytes(magic),
+                "invalid DHCP magic cookie",
+            ));
+        }
         // The remaining bytes are the main options field; capture them so an
         // overloaded field's options can be reassembled with them (RFC 3396).
         let opts_raw = decoder.buffer();
@@ -707,6 +715,16 @@ mod tests {
         msg.encode(&mut e)?;
         assert_eq!(buf, bootreq());
         Ok(())
+    }
+
+    #[test]
+    fn decode_rejects_bad_magic() {
+        // a packet whose magic cookie isn't 99.130.83.99 is not a valid DHCP
+        // message and must be rejected rather than silently mis-parsed.
+        let mut bytes = offer();
+        assert_eq!(bytes[236], 0x63); // sanity: cookie starts here
+        bytes[236] = 0x00; // corrupt it
+        assert!(Message::decode(&mut Decoder::new(&bytes)).is_err());
     }
 
     #[test]

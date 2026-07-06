@@ -684,7 +684,7 @@ pub(crate) fn decode_inner(
         OptionCode::TrailerEncapsulated => TrailerEncapsulated(decoder.read_bool()?),
         OptionCode::ArpCacheTimeout => ArpCacheTimeout(decoder.read_u32()?),
         OptionCode::EthernetEncapsulation => EthernetEncapsulation(decoder.read_bool()?),
-        OptionCode::DefaultTcpTtl => DefaultIpTtl(decoder.read_u8()?),
+        OptionCode::DefaultTcpTtl => DefaultTcpTtl(decoder.read_u8()?),
         OptionCode::TcpKeepaliveInterval => TcpKeepaliveInterval(decoder.read_u32()?),
         OptionCode::TcpKeepaliveGarbage => TcpKeepaliveGarbage(decoder.read_bool()?),
         OptionCode::NisDomain => NisDomain(decoder.read_string(len)?),
@@ -1522,6 +1522,14 @@ mod tests {
     #[test]
     fn test_byte() -> Result<()> {
         test_opt(DhcpOption::DefaultIpTtl(10), vec![23, 1, 10])?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_default_tcp_ttl() -> Result<()> {
+        // option 37 must encode as code 37 and decode back to DefaultTcpTtl
+        // (regression: it used to decode into the DefaultIpTtl / option-23 variant)
+        test_opt(DhcpOption::DefaultTcpTtl(64), vec![37, 1, 64])?;
 
         Ok(())
     }
