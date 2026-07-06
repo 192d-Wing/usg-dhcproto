@@ -134,9 +134,14 @@ impl<'a> Message<'a> {
 
     /// The option 52 (Option Overload) value from the main options field, or 0
     /// if the option is absent. See RFC 2131 §4.1 / RFC 2132 §9.3.
+    ///
+    /// If the (malformed) message carries option 52 more than once, the last
+    /// occurrence wins, matching the owned [`Message`](crate::v4::Message)
+    /// decoder (whose `BTreeMap` keeps the last-inserted value).
     fn option_overload(&self) -> u8 {
         self.opts()
-            .find(|opt| opt.code() == OptionCode::OptionOverload)
+            .filter(|opt| opt.code() == OptionCode::OptionOverload)
+            .last()
             .and_then(|opt| opt.data().first().copied())
             .unwrap_or(0)
     }
@@ -147,9 +152,10 @@ impl<'a> Message<'a> {
     ///
     /// Options are yielded in region order: main options field, then `file`,
     /// then `sname`. Unlike the owned [`Message`](crate::v4::Message) decoder,
-    /// this is a raw view and performs no de-duplication across regions, so a
-    /// code present in more than one region is yielded once per region. The
-    /// option 52 marker itself is also yielded (from the main field).
+    /// this is a raw view: it performs no de-duplication across regions and does
+    /// not reassemble an option whose value is split across a region boundary
+    /// (RFC 3396) — same-code fragments are yielded once per region for the
+    /// caller to concatenate. The option 52 marker itself is also yielded.
     ///
     /// This requires one extra pass over the main options field to locate
     /// option 52; prefer [`opts`](Self::opts) when overload handling is not
@@ -420,6 +426,25 @@ mod tests {
                 OptionCode::DomainName,
             ]
         );
+    }
+
+    #[test]
+    fn test_option_overload_duplicate_last_wins() {
+        // Two option-52 markers in the main field: the last (value 2 => sname)
+        // must win, matching the owned decoder's last-inserted BTreeMap value.
+        let sname_opts = [12u8, 4, b'h', b'o', b's', b't', 255];
+        let file_opts = [15u8, 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 255];
+        // First marker value 1 (file), separated by another option so it does
+        // not concatenate with the trailing marker that overload_buf appends
+        // (value 2 => sname). The last marker must win.
+        let main = [53u8, 1, 1, 52, 1, 1, 61, 2, 9, 9];
+        let buf = overload_buf(2, &main, &sname_opts, &file_opts);
+        let msg = Message::new(&buf).unwrap();
+
+        let all: Vec<_> = msg.opts_overloaded().map(|o| o.code()).collect();
+        // sname (Hostname) is parsed, file (DomainName) is not
+        assert!(all.contains(&OptionCode::Hostname));
+        assert!(!all.contains(&OptionCode::DomainName));
     }
 
     #[test]
