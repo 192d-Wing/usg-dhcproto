@@ -581,7 +581,9 @@ mod tests {
             .set_hop_count(2)
             .set_link_addr(link)
             .set_peer_addr(peer);
-        relay.opts_mut().insert(DhcpOption::RelayMsg(client.clone()));
+        relay
+            .opts_mut()
+            .insert(DhcpOption::RelayMsg(client.clone()));
         relay
             .opts_mut()
             .insert(DhcpOption::InterfaceId(b"eth0".to_vec()));
