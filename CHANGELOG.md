@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0]
+
+### Changed
+
+- **breaking**: the DHCPv6 Relay-Message option (opt 9) now carries the
+  encapsulated message as raw bytes: `DhcpOption::RelayMsg(RelayMessage)` is now
+  `DhcpOption::RelayMsg(Vec<u8>)`. Per RFC 8415 §19 the encapsulated message is a
+  client `Message` at the innermost hop or a nested `RelayMessage`, so the
+  content cannot be a single fixed type; the consumer decodes it based on its
+  first byte (message type). Decoding a Relay-forward whose Relay-Message holds a
+  client message previously failed (it was parsed as a `RelayMessage`). This also
+  changes the option's `serde` and `Debug` representation to a byte array.
+
+### Added
+
+- `RelayMessage::new(msg_type, hop_count, link_addr, peer_addr)` constructor and
+  `set_msg_type` / `set_hop_count` / `set_link_addr` / `set_peer_addr` setters, so
+  a server can build a Relay-reply (`RelayMessage` was previously decode-only).
+
 ## [0.17.1]
 
 ### Fixed

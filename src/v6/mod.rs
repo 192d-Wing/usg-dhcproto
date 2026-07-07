@@ -336,17 +336,56 @@ pub struct RelayMessage {
 }
 
 impl RelayMessage {
+    /// Construct a new relay message (e.g. a Relay-reply) with no options.
+    pub fn new(
+        msg_type: MessageType,
+        hop_count: u8,
+        link_addr: Ipv6Addr,
+        peer_addr: Ipv6Addr,
+    ) -> Self {
+        Self {
+            msg_type,
+            hop_count,
+            link_addr,
+            peer_addr,
+            opts: DhcpOptions::new(),
+        }
+    }
+    /// Get the message type.
     pub fn msg_type(&self) -> MessageType {
         self.msg_type
     }
+    /// Set the message type.
+    pub fn set_msg_type(&mut self, msg_type: MessageType) -> &mut Self {
+        self.msg_type = msg_type;
+        self
+    }
+    /// Get the hop count.
     pub fn hop_count(&self) -> u8 {
         self.hop_count
     }
+    /// Set the hop count.
+    pub fn set_hop_count(&mut self, hop_count: u8) -> &mut Self {
+        self.hop_count = hop_count;
+        self
+    }
+    /// Get the link address.
     pub fn link_addr(&self) -> Ipv6Addr {
         self.link_addr
     }
+    /// Set the link address.
+    pub fn set_link_addr(&mut self, link_addr: Ipv6Addr) -> &mut Self {
+        self.link_addr = link_addr;
+        self
+    }
+    /// Get the peer address.
     pub fn peer_addr(&self) -> Ipv6Addr {
         self.peer_addr
+    }
+    /// Set the peer address.
+    pub fn set_peer_addr(&mut self, peer_addr: Ipv6Addr) -> &mut Self {
+        self.peer_addr = peer_addr;
+        self
     }
     /// Get a reference to the message's options.
     pub fn opts(&self) -> &DhcpOptions {
@@ -518,5 +557,51 @@ mod tests {
             0x0e, 0x00, 0x01, 0x00, 0x01, 0x1c, 0x38, 0x25, 0xe8, 0x08, 0x00, 0x27, 0xd4, 0x10,
             0xbb,
         ]
+    }
+
+    // a Relay-forward built via the new constructor/setters round-trips through
+    // encode/decode, and its Relay-Message option carries the inner client
+    // message as raw bytes (RFC 8415 §19).
+    #[test]
+    fn relay_message_roundtrip() -> Result<()> {
+        use std::net::Ipv6Addr;
+        let link: Ipv6Addr = "2001:db8::1".parse()?;
+        let peer: Ipv6Addr = "fe80::5".parse()?;
+
+        // the encapsulated client message, as raw bytes
+        let client = Message::new(MessageType::Solicit).to_vec()?;
+
+        let mut relay = RelayMessage::new(
+            MessageType::RelayForw,
+            0,
+            Ipv6Addr::UNSPECIFIED,
+            Ipv6Addr::UNSPECIFIED,
+        );
+        relay
+            .set_hop_count(2)
+            .set_link_addr(link)
+            .set_peer_addr(peer);
+        relay.opts_mut().insert(DhcpOption::RelayMsg(client.clone()));
+        relay
+            .opts_mut()
+            .insert(DhcpOption::InterfaceId(b"eth0".to_vec()));
+
+        let buf = relay.to_vec()?;
+        let decoded = RelayMessage::decode(&mut Decoder::new(&buf))?;
+        assert_eq!(decoded, relay);
+        assert_eq!(decoded.hop_count(), 2);
+        assert_eq!(decoded.link_addr(), link);
+        assert_eq!(decoded.peer_addr(), peer);
+
+        // the Relay-Message option holds the client bytes verbatim
+        match decoded.opts().get(OptionCode::RelayMsg) {
+            Some(DhcpOption::RelayMsg(bytes)) => {
+                assert_eq!(bytes, &client);
+                let inner = Message::decode(&mut Decoder::new(bytes))?;
+                assert_eq!(inner.msg_type(), MessageType::Solicit);
+            }
+            _ => panic!("expected a RelayMsg option"),
+        }
+        Ok(())
     }
 }

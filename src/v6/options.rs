@@ -13,7 +13,7 @@ use crate::{
     decoder::{Decodable, Decoder},
     encoder::{Encodable, Encoder},
     error::{DecodeResult, EncodeResult},
-    v6::{MessageType, RelayMessage},
+    v6::MessageType,
 };
 
 // V6 arch types are the same as V4, so just re-export it.
@@ -125,7 +125,11 @@ pub enum DhcpOption {
     /// Elapsed time in millis
     ElapsedTime(u16),
     /// 9 - <https://datatracker.ietf.org/doc/html/rfc8415#section-21.10>
-    RelayMsg(RelayMessage),
+    /// The relayed DHCP message as raw encoded bytes. Per RFC 8415 §19 the
+    /// encapsulated message is a client `Message` at the innermost hop or a
+    /// nested `RelayMessage`; the consumer decodes it based on its first byte
+    /// (message type).
+    RelayMsg(Vec<u8>),
     /// 11 - <https://datatracker.ietf.org/doc/html/rfc8415#section-21.11>
     Authentication(Authentication),
     /// 12 - <https://datatracker.ietf.org/doc/html/rfc8415#section-21.12>
@@ -580,8 +584,9 @@ impl Decodable for DhcpOption {
             OptionCode::Preference => DhcpOption::Preference(decoder.read_u8()?),
             OptionCode::ElapsedTime => DhcpOption::ElapsedTime(decoder.read_u16()?),
             OptionCode::RelayMsg => {
-                let mut relay_dec = Decoder::new(decoder.read_slice(len)?);
-                DhcpOption::RelayMsg(RelayMessage::decode(&mut relay_dec)?)
+                // keep the encapsulated message as raw bytes; the content is a
+                // client Message or a nested RelayMessage, decided by the caller
+                DhcpOption::RelayMsg(decoder.read_slice(len)?.to_vec())
             }
             OptionCode::Authentication => {
                 let mut dec = Decoder::new(decoder.read_slice(len)?);
@@ -731,13 +736,9 @@ impl Encodable for DhcpOption {
                 e.write_u16(2)?;
                 e.write_u16(*elapsed)?;
             }
-            DhcpOption::RelayMsg(msg) => {
-                let mut buf = Vec::new();
-                let mut relay_enc = Encoder::new(&mut buf);
-                msg.encode(&mut relay_enc)?;
-
-                e.write_u16(buf.len() as u16)?;
-                e.write_slice(&buf)?;
+            DhcpOption::RelayMsg(bytes) => {
+                e.write_u16(bytes.len() as u16)?;
+                e.write_slice(bytes)?;
             }
             DhcpOption::Authentication(Authentication {
                 proto,
