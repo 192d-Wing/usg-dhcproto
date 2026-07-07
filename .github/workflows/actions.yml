@@ -30,7 +30,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run cargo check
-        run: cargo check --all-features
+        # --locked fails the PR if Cargo.lock is stale, so a forgotten
+        # lockfile update is caught here instead of at release time.
+        run: cargo check --all-features --locked
 
   test:
     name: Test Suite
@@ -54,7 +56,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run cargo test
-        run: cargo test --all-features
+        run: cargo test --all-features --locked
 
   doc:
     name: Rust doc Suite
