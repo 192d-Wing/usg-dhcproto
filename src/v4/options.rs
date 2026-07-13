@@ -134,7 +134,7 @@ usg_dhcproto_macros::declare_codes!(
     {119, DomainSearch, "Domain Search - <https://www.rfc-editor.org/rfc/rfc3397.html>", (Vec<Name>)},
     {120, SipServers, "SIP Servers - <https://www.rfc-editor.org/rfc/rfc3361>", (SipServers)},
     {121, ClasslessStaticRoute, "Classless Static Route - <https://www.rfc-editor.org/rfc/rfc3442>", (Vec<(Ipv4Net, Ipv4Addr)>)},
-    {125, VendorIdentifyingVendorSpecificInfo, "Vendor-Identifying Vendor-Specific Information - <https://www.rfc-editor.org/rfc/rfc3925>", (Vec<ViVendorSpecificInfo>)},
+    {125, VendorIdentifyingVendorSpecificInfo, "Vendor-Identifying Vendor-Specific Information (stored as opaque bytes; RFC 3925 framing is NOT parsed so non-standard vendor framing round-trips verbatim) - <https://www.rfc-editor.org/rfc/rfc3925>", (Vec<u8>)},
     {150, TFTPServerAddress, "TFTP Server Address - <https://www.rfc-editor.org/rfc/rfc5859.html>", (Ipv4Addr)},
     {151, BulkLeaseQueryStatusCode, "BLQ status-code - <https://www.rfc-editor.org/rfc/rfc6926.html#section-6.2.2>", (bulk_query::Code, String)},
     {152, BulkLeaseQueryBaseTime, "BLQ base time - <https://www.rfc-editor.org/rfc/rfc6926.html#section-6.2.3>", (u32)},
@@ -587,16 +587,6 @@ pub enum SipServers {
     Addresses(Vec<Ipv4Addr>),
 }
 
-/// Vendor-specific data for one enterprise in RFC 3925 DHCPv4 option 125.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ViVendorSpecificInfo {
-    /// IANA enterprise number identifying the vendor-specific namespace.
-    pub enterprise_number: u32,
-    /// Opaque vendor-specific option data.
-    pub data: Vec<u8>,
-}
-
 fn decode_sip_servers(len: usize, decoder: &mut Decoder<'_>) -> DecodeResult<SipServers> {
     if len == 0 {
         return Err(crate::error::DecodeError::NotEnoughBytes);
@@ -612,25 +602,6 @@ fn decode_sip_servers(len: usize, decoder: &mut Decoder<'_>) -> DecodeResult<Sip
             "invalid SIP servers encoding",
         )),
     }
-}
-
-fn decode_vi_vendor_specific_info(
-    len: usize,
-    decoder: &mut Decoder<'_>,
-) -> DecodeResult<Vec<ViVendorSpecificInfo>> {
-    let mut decoder = Decoder::new(decoder.read_slice(len)?);
-    let mut entries = Vec::new();
-    while !decoder.buffer().is_empty() {
-        let enterprise_number = decoder.read_u32()?;
-        let data_len = decoder.read_u8()? as usize;
-        let data = decoder.read_slice(data_len)?.to_vec();
-        entries.push(ViVendorSpecificInfo {
-            enterprise_number,
-            data,
-        });
-    }
-
-    Ok(entries)
 }
 
 #[inline]
@@ -771,7 +742,10 @@ pub(crate) fn decode_inner(
         OptionCode::SipServers => SipServers(decode_sip_servers(len, decoder)?),
         OptionCode::TFTPServerAddress => TFTPServerAddress(decoder.read_ipv4(len)?),
         OptionCode::VendorIdentifyingVendorSpecificInfo => {
-            VendorIdentifyingVendorSpecificInfo(decode_vi_vendor_specific_info(len, decoder)?)
+            // Opaque: keep the raw payload rather than parsing RFC 3925
+            // enterprise/length entries, so non-standard vendor framing
+            // (e.g. TEO's 2-byte PEN) survives decode->encode unchanged.
+            VendorIdentifyingVendorSpecificInfo(decoder.read_slice(len)?.to_vec())
         }
         OptionCode::BulkLeaseQueryStatusCode => {
             let code = decoder.read_u8()?.into();
@@ -1158,6 +1132,7 @@ impl Encodable for DhcpOption {
             | O::TFTPServerName(bytes)
             | O::BootfileName(bytes)
             | O::NwipInformation(bytes)
+            | O::VendorIdentifyingVendorSpecificInfo(bytes)
             | O::UserClass(bytes) => {
                 encode_long_opt_bytes(code, bytes, e)?;
             }
@@ -1266,23 +1241,6 @@ impl Encodable for DhcpOption {
                     route_enc.write_u8(dest.prefix_len())?;
                     route_enc.write_slice(&dest.addr().octets()[0..byte_len as usize])?;
                     route_enc.write(gw.octets())?;
-                }
-
-                encode_long_opt_bytes(code, &buf, e)?;
-            }
-            O::VendorIdentifyingVendorSpecificInfo(entries) => {
-                let mut buf = Vec::new();
-                let mut entry_enc = Encoder::new(&mut buf);
-                for entry in entries {
-                    if entry.data.len() > u8::MAX as usize {
-                        return Err(crate::error::EncodeError::StringSizeTooBig {
-                            len: entry.data.len(),
-                        });
-                    }
-
-                    entry_enc.write_u32(entry.enterprise_number)?;
-                    entry_enc.write_u8(entry.data.len() as u8)?;
-                    entry_enc.write_slice(&entry.data)?;
                 }
 
                 encode_long_opt_bytes(code, &buf, e)?;
@@ -1680,20 +1638,13 @@ mod tests {
 
     #[test]
     fn test_vi_vendor_specific_info() -> Result<()> {
+        // Opaque: the payload round-trips verbatim, including non-RFC-3925
+        // vendor framing such as TEO's 2-byte PEN (0x99CC) + 1-byte length.
+        // These exact bytes would fail to parse as RFC 3925 entries.
+        let payload = vec![0x99, 0xCC, 0x03, b'a', b'b', b'c'];
         test_opt(
-            DhcpOption::VendorIdentifyingVendorSpecificInfo(vec![
-                ViVendorSpecificInfo {
-                    enterprise_number: 4491,
-                    data: vec![1, 3, b'a', b'b', b'c'],
-                },
-                ViVendorSpecificInfo {
-                    enterprise_number: 32473,
-                    data: vec![2, 1, 7],
-                },
-            ]),
-            vec![
-                125, 18, 0, 0, 17, 139, 5, 1, 3, b'a', b'b', b'c', 0, 0, 126, 217, 3, 2, 1, 7,
-            ],
+            DhcpOption::VendorIdentifyingVendorSpecificInfo(payload),
+            vec![125, 6, 0x99, 0xCC, 0x03, b'a', b'b', b'c'],
         )?;
 
         Ok(())

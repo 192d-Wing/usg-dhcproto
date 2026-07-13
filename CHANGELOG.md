@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0]
+
+### Changed
+
+- **breaking**: the DHCPv4 Vendor-Identifying Vendor-Specific Information option
+  (opt 125) now carries its payload as opaque bytes:
+  `DhcpOption::VendorIdentifyingVendorSpecificInfo(Vec<ViVendorSpecificInfo>)` is
+  now `DhcpOption::VendorIdentifyingVendorSpecificInfo(Vec<u8>)`, and the
+  `ViVendorSpecificInfo` struct is removed. The previous code parsed the payload
+  as RFC 3925 entries (4-byte enterprise number + 1-byte length, repeating) and
+  rejected anything that did not tile cleanly. Some vendors use non-standard
+  framing for option 125 (e.g. TEO phones use a 2-byte PEN + 1-byte length),
+  which failed to decode and — because `DhcpOptions::decode` skips options that
+  fail to parse — was silently dropped. Storing the payload verbatim lets such
+  values round-trip decode->encode unchanged. Callers that need RFC 3925
+  structure should parse the bytes themselves.
+
 ## [0.18.0]
 
 ### Changed
